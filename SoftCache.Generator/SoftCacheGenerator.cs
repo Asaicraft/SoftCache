@@ -1,6 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
+using SoftCache.Generator.StaticHashMakers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -61,10 +63,11 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
 
             var parametersText = CreateParametersText(target, extractedParameters);
             var getParametersText = CreateGetParametersText(target, extractedParameters);
+            var softHashText = CreateSoftHashBundleText(target, options, extractedParameters);
 
             spc.AddSource(parametersText);
             spc.AddSource(getParametersText);
-
+            spc.AddSource(softHashText);
         });
     }
 
@@ -105,6 +108,62 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
 
         return (compilationUnitWithMethod.GetText(Encoding.UTF8), safeName);
     }
+
+    private static GeneratedSourceFile CreateSoftHashBundleText(INamedTypeSymbol target, SoftCacheOptions options, ImmutableArray<ExtractedParameter> extractedParameters)
+    {
+        // Fully qualified type name and ISoftCacheable<T>
+        var fullyQualifiedName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat); // global::Ns.Type
+        var interfaceFullyQualifiedName = $"global::SoftCache.ISoftCacheable<{fullyQualifiedName}.Parameters>";
+
+        // 1) Explicit GetSoftHashCode method
+        var explicitInterface = ExplicitInterfaceSpecifier(ParseName(interfaceFullyQualifiedName));
+
+        // var parameters = ((global::SoftCache.ISoftCacheable<...>)this).GetParameters();
+        var getParametersStatement = ParseStatement(
+            $"var parameters = (({interfaceFullyQualifiedName})this).GetParameters();");
+
+        // return MakeSoftHash(in parameters);
+        var returnStatement = ReturnStatement(
+            InvocationExpression(IdentifierName("MakeSoftHash"))
+                .WithArgumentList(
+                    ArgumentList(
+                        SingletonSeparatedList(
+                            Argument(
+                                nameColon: null,
+                                refKindKeyword: Token(SyntaxKind.InKeyword),
+                                expression: IdentifierName("parameters"))))));
+
+        var getSoftHashCodeMethod =
+            MethodDeclaration(PredefinedType(Token(SyntaxKind.UShortKeyword)), Identifier("GetSoftHashCode"))
+                .WithExplicitInterfaceSpecifier(explicitInterface)
+                .WithBody(Block(getParametersStatement, returnStatement))
+                .WithLeadingTrivia(ParseLeadingTrivia("""
+                /// <inheritdoc cref="global::SoftCache.ISoftCacheable{T}.GetSoftHashCode"/>
+                """));
+
+        // 2) Static MakeSoftHash(...) — choose implementation by SoftHashKind
+        var staticHashMaker = StaticHashMaker.GetStaticHashMaker(options);
+        var makeSoftHashMethod = staticHashMaker.MakeStatic(options, target, extractedParameters);
+
+        // 3) Add interface to the base list
+        var baseList = BaseList(
+            SingletonSeparatedList<BaseTypeSyntax>(
+                SimpleBaseType(ParseTypeName(interfaceFullyQualifiedName))));
+
+        // 4) Wrap everything into a partial of the target type (respecting namespace and nested types)
+        var partialDeclaration = BuildPartialContainer(
+            target,
+            new MemberDeclarationSyntax[] { getSoftHashCodeMethod, makeSoftHashMethod },
+            baseListSyntax: baseList);
+
+        var compilationUnit = CompilationUnit()
+            .WithMembers(SingletonList<MemberDeclarationSyntax>(partialDeclaration))
+            .NormalizeWhitespace();
+
+        return (compilationUnit.GetText(Encoding.UTF8), CreateFileName(fullyQualifiedName, "SoftHash"));
+    }
+
+
 
     // ---------- helpers ----------
 
