@@ -18,20 +18,8 @@ public enum SoftHashKind
     XorFold16,
 
     /// <summary>
-    /// Reduced 16-bit Murmur3 mix.  
-    /// Slower, but better avalanche and resistance to patterned inputs.
-    /// </summary>
-    Murmur3_16,
-
-    /// <summary>
-    /// Reduced 16-bit FNV-1a hash.  
-    /// Compact and simple, widely used for small key spaces.
-    /// </summary>
-    Fnv1a_16,
-
-    /// <summary>
     /// Custom hash logic — generator will call a partial method 
-    /// <c>CombineSoftHash(...)</c> for manual implementation.
+    /// <c>MakeSoftHash(in Parameters)</c> for manual implementation.
     /// </summary>
     Custom
 }

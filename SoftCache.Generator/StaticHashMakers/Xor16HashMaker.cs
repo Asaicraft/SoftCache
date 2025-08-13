@@ -12,6 +12,8 @@ namespace SoftCache.Generator.StaticHashMakers;
 
 public sealed class Xor16HashMaker : IStaticHashMaker
 {
+    public static readonly Xor16HashMaker Instance = new();
+
     public MethodDeclarationSyntax MakeStatic(
         SoftCacheOptions softCacheOptions,
         ITypeSymbol typeSymbol,
