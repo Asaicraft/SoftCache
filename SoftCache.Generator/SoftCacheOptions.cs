@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Microsoft.CodeAnalysis;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SoftCache.Generator;
 
-public sealed class SoftCacheOptions
+public sealed record SoftCacheOptions
 {
     /// <summary>
     /// Size of the cache in bits.
@@ -13,26 +14,26 @@ public sealed class SoftCacheOptions
     /// Must be between 1 and 16 (inclusive).
     /// </para>
     /// </summary>
-    public int CacheBits { get; set; } = 16;
+    public int CacheBits { get; init; } = 16;
 
     /// <summary>
-    /// Number of entries per cache slot (set associativity).
+    /// Number of entries per cache slot (init associativity).
     /// <para>
     /// A value of 1 means no buckets — direct-mapped cache.
     /// A value between 2 and 4 enables small buckets per slot, improving collision handling.
     /// </para>
     /// </summary>
-    public int Associativity { get; set; } = 1;
+    public int Associativity { get; init; } = 1;
 
     /// <summary>
     /// The hash algorithm used for <see cref="ISoftCacheable{TParameters}.GetSoftHashCode"/>.
     /// </summary>
-    public SoftHashKind HashKind { get; set; } = SoftHashKind.XorFold16;
+    public SoftHashKind HashKind { get; init; } = SoftHashKind.XorFold16;
 
     /// <summary>
     /// Concurrency control mode used when writing into the cache.
     /// </summary>
-    public SoftCacheConcurrency Concurrency { get; set; } = SoftCacheConcurrency.None;
+    public SoftCacheConcurrency Concurrency { get; init; } = SoftCacheConcurrency.None;
 
     /// <summary>
     /// Whether to generate a random global seed for the hash function at application startup.
@@ -46,7 +47,7 @@ public sealed class SoftCacheOptions
     /// collision avoidance and minor security benefits.
     /// </para>
     /// </summary>
-    public bool GenerateGlobalSeed { get; set; } = false;
+    public bool GenerateGlobalSeed { get; init; } = false;
 
     /// <summary>
     /// Whether to include debug metrics collection for cache operations.
@@ -56,7 +57,7 @@ public sealed class SoftCacheOptions
     /// Metrics are only active in <c>DEBUG</c> builds.
     /// </para>
     /// </summary>
-    public bool EnableDebugMetrics { get; set; } = false;
+    public bool EnableDebugMetrics { get; init; } = false;
 
     /// <summary>
     /// Optional domain key for multi-cache separation.
@@ -65,5 +66,10 @@ public sealed class SoftCacheOptions
     /// Use to group related cached objects (e.g., by subsystem or DTO type family).
     /// </para>
     /// </summary>
-    public string? Domain { get; set; }
+    public string? Domain { get; init; }
+
+    /// <summary>
+    /// The target type for which the cache is being generated.
+    /// </summary>
+    public ITypeSymbol TargetType { get; init; }
 }

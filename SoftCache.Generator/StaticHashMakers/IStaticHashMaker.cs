@@ -9,5 +9,5 @@ namespace SoftCache.Generator.StaticHashMakers;
 
 public interface IStaticHashMaker
 {
-    public MethodDeclarationSyntax MakeStatic(ITypeSymbol typeSymbol, ImmutableArray<ExtractedParameter> extractedParameters);
+    public MethodDeclarationSyntax MakeStatic(SoftCacheOptions softCacheOptions, ITypeSymbol typeSymbol, ImmutableArray<ExtractedParameter> extractedParameters);
 }
