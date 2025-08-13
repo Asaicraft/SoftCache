@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftCache.WebExample", "Sof
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SoftCache.Shared", "SoftCache.Shared\SoftCache.Shared.shproj", "{BC765DAE-5280-4E54-B754-59C27C793DC0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftCache.Benchmarks", "SoftCache.Benchmarks\SoftCache.Benchmarks.csproj", "{28CDDAA3-CACC-48CD-A672-936FD210C1AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{A3DE3C25-F4DC-4335-AFB1-B7FA4B63F3E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A3DE3C25-F4DC-4335-AFB1-B7FA4B63F3E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A3DE3C25-F4DC-4335-AFB1-B7FA4B63F3E3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{28CDDAA3-CACC-48CD-A672-936FD210C1AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28CDDAA3-CACC-48CD-A672-936FD210C1AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28CDDAA3-CACC-48CD-A672-936FD210C1AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28CDDAA3-CACC-48CD-A672-936FD210C1AB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
