@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using static SoftCache.Generator.SoftCacheGenerator;
 
 namespace SoftCache.Generator.StaticHashMakers;
 
@@ -118,32 +119,6 @@ public sealed class Xor16HashMaker : IStaticHashMaker
             .WithLeadingTrivia(xmlDocumentation);
 
         return methodDeclaration;
-    }
-
-    private static string SeedIdentifier(SoftCacheOptions options, string fullyQualifiedType)
-    {
-        if (!string.IsNullOrEmpty(options.Domain))
-        {
-            // Domain-wide seed
-            return $"__SoftCacheDomainSeed_{Sanitize(options.Domain!)}";
-        }
-
-        // fullyQualifiedType = global::Ns.Type
-        var shortName = fullyQualifiedType.StartsWith("global::", StringComparison.Ordinal)
-            ? fullyQualifiedType.Substring("global::".Length)
-            : fullyQualifiedType;
-
-        return $"__SoftCacheTypeSeed_{Sanitize(shortName.Replace('.', '_'))}";
-    }
-
-    private static string Sanitize(string identifier)
-    {
-        var builder = new System.Text.StringBuilder(identifier.Length);
-        foreach (var ch in identifier)
-        {
-            builder.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
-        }
-        return builder.ToString();
     }
 
     private enum Kind { SmallInt16, Int32Like, Int64Like, Float32, Float64, ObjectLike }

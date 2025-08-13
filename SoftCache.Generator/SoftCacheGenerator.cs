@@ -251,6 +251,32 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         return new string(chars);
     }
 
+    public static string SeedIdentifier(SoftCacheOptions options, string fullyQualifiedType)
+    {
+        if (!string.IsNullOrEmpty(options.Domain))
+        {
+            // Domain-wide seed
+            return $"__SoftCacheDomainSeed_{Sanitize(options.Domain!)}";
+        }
+
+        // fullyQualifiedType = global::Ns.Type
+        var shortName = fullyQualifiedType.StartsWith("global::", StringComparison.Ordinal)
+            ? fullyQualifiedType["global::".Length..]
+            : fullyQualifiedType;
+
+        return $"__SoftCacheTypeSeed_{Sanitize(shortName.Replace('.', '_'))}";
+    }
+
+    public static string Sanitize(string identifier)
+    {
+        var builder = new System.Text.StringBuilder(identifier.Length);
+        foreach (var ch in identifier)
+        {
+            builder.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
+        }
+        return builder.ToString();
+    }
+
     private static SoftCacheOptions ParseOptions(AttributeData attributeData, ITypeSymbol targetType)
     {
         var cacheBits = 16;
