@@ -1,4 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
+using SoftCache;
+using SoftCache.Annotations;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -6,6 +8,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
 });
+
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
@@ -24,12 +28,45 @@ todosApi.MapGet("/{id}", (int id) =>
         ? Results.Ok(todo)
         : Results.NotFound());
 
+
 app.Run();
 
 public record Todo(int Id, string? Title, DateOnly? DueBy = null, bool IsComplete = false);
 
 [JsonSerializable(typeof(Todo[]))]
-internal partial class AppJsonSerializerContext : JsonSerializerContext
-{
+[JsonSerializable(typeof(TodoQueryKey))]
+internal partial class AppJsonSerializerContext : JsonSerializerContext { }
 
+[SoftCache(
+    CacheBits = 16,
+    Associativity = 1,
+    HashKind = SoftHashKind.XorFold16,
+    Concurrency = SoftCacheConcurrency.None,
+    GenerateGlobalSeed = false,
+    EnableDebugMetrics = false,
+    Domain = "Todos")]
+public sealed partial class TodoQueryKey
+{
+    public string? Query { get; }
+    public int FromDayNumber { get; }
+    public int ToDayNumber { get; }
+    public bool IsComplete { get; }
+    public int Page { get; }
+    public int PageSize { get; }
+
+    public TodoQueryKey(
+        string? query,
+        int fromDayNumber,
+        int toDayNumber,
+        bool isComplete,
+        int page,
+        int pageSize)
+    {
+        Query = query;
+        FromDayNumber = fromDayNumber;
+        ToDayNumber = toDayNumber;
+        IsComplete = isComplete;
+        Page = page;
+        PageSize = pageSize;
+    }
 }

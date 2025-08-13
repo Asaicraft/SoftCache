@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SoftCache;
+namespace SoftCache.Annotations;
 
 /// <summary>
 /// Declares cache generation options for a given <see cref="ISoftCacheable{TParameters}"/> type.

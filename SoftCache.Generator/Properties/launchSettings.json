@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SoftCache.Generator": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\SoftCache.WebExample\\SoftCache.WebExample.csproj"
+    }
+  }
+}
