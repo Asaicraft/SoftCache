@@ -6,4 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <Import Project="..\SoftCache.Shared\SoftCache.Shared.projitems" Label="Shared" />
+
 </Project>

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftCache.Generator", "Soft
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftCache.WebExample", "SoftCache.WebExample\SoftCache.WebExample.csproj", "{A3DE3C25-F4DC-4335-AFB1-B7FA4B63F3E3}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SoftCache.Shared", "SoftCache.Shared\SoftCache.Shared.shproj", "{BC765DAE-5280-4E54-B754-59C27C793DC0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		SoftCache.Shared\SoftCache.Shared.projitems*{2a0bfd36-dbeb-411c-8bea-dbc488aebb42}*SharedItemsImports = 5
+		SoftCache.Shared\SoftCache.Shared.projitems*{bc765dae-5280-4e54-b754-59c27c793dc0}*SharedItemsImports = 13
+		SoftCache.Shared\SoftCache.Shared.projitems*{de8805ce-0115-4912-a333-7ecd313c73c0}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal
