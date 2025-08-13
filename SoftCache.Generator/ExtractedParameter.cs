@@ -11,4 +11,4 @@ namespace SoftCache.Generator;
 public readonly record struct ExtractedParameter(
     ISymbol RawSymbol,
     string Name,
-    ISymbol Type);
+    ITypeSymbol Type);

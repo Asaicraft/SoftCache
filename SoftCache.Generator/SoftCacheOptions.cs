@@ -71,5 +71,5 @@ public sealed record SoftCacheOptions
     /// <summary>
     /// The target type for which the cache is being generated.
     /// </summary>
-    public ITypeSymbol TargetType { get; init; }
+    public required ITypeSymbol TargetType { get; init; }
 }
