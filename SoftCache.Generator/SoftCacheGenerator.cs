@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SoftCache.Generator;
@@ -51,90 +52,114 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(optionsProvider, static (spc, options) =>
         {
-            var target = options.TargetType as INamedTypeSymbol;
-            if (target is null)
+            if (options?.TargetType is not INamedTypeSymbol target)
             {
                 return;
             }
 
-            // 1) Extract parameters
             var extractedParameters = ParametersExtractor.ExtractParameters(target);
 
-            // 2) Build nested struct Parameters
-            var parametersStruct = ParametersMaker.MakeParameters(target, extractedParameters);
+            var parametersText = CreateParametersText(target, extractedParameters);
+            var getParametersText = CreateGetParametersText(target, extractedParameters);
 
-            // 3) Build explicit interface implementation GetParameters()
-            var getParametersMethod = GetParametersMaker.CreateGetParameters(target, extractedParameters);
+            spc.AddSource(parametersText);
+            spc.AddSource(getParametersText);
 
-            // 4) Wrap partial type with nested struct
-            var partialWithParameters = BuildPartialContainer(target, [parametersStruct]);
-            var compilationUnitWithParameters = CompilationUnit()
-                .WithMembers(SingletonList(partialWithParameters))
-                .NormalizeWhitespace();
-
-            // 5) Wrap partial type with the method GetParameters
-            var partialWithMethod = BuildPartialContainer(target, [getParametersMethod]);
-            var compilationUnitWithMethod = CompilationUnit()
-                .WithMembers(SingletonList(partialWithMethod))
-                .NormalizeWhitespace();
-
-            // 6) File names
-            var fullTypeName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat); // global::A.B.C
-            var safeName = SafeFileMoniker(fullTypeName); // A_B_C
-
-            var parametersText = compilationUnitWithParameters.GetText(System.Text.Encoding.UTF8);
-            var getParametersText = compilationUnitWithMethod.GetText(System.Text.Encoding.UTF8);
-
-            spc.AddSource($"{safeName}.Parameters.g.cs", parametersText);
-            spc.AddSource($"{safeName}.GetParameters.g.cs", getParametersText);
         });
+    }
+
+    private static GeneratedSourceFile CreateParametersText(INamedTypeSymbol target, ImmutableArray<ExtractedParameter> extractedParameters)
+    {
+        var fullTypeName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat); // global::A.B.C
+        var safeName = CreateFileName(fullTypeName, "Parameters");
+
+        // 1) Build nested struct Parameters
+        var parametersStruct = ParametersMaker.MakeParameters(target, extractedParameters);
+
+        // 2) Wrap partial type with nested struct
+        var partialWithParameters = BuildPartialContainer(target, [parametersStruct]);
+        var compilationUnitWithParameters = CompilationUnit()
+            .WithMembers(SingletonList(partialWithParameters))
+            .NormalizeWhitespace();
+
+        return (compilationUnitWithParameters.GetText(Encoding.UTF8), safeName);
+    }
+
+    private static GeneratedSourceFile CreateGetParametersText(INamedTypeSymbol target, ImmutableArray<ExtractedParameter> extractedParameters)
+    {
+        var fullTypeName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat); // global::A.B.C
+        var safeName = CreateFileName(fullTypeName, "GetParameters");
+
+        // 1) Build explicit interface implementation GetParameters()
+        var getParametersMethod = GetParametersMaker.CreateGetParameters(target, extractedParameters);
+
+        var baseList = BaseList(SeparatedList<BaseTypeSyntax>([
+             SimpleBaseType(ParseTypeName($"global::SoftCache.ISoftCacheable<{fullTypeName}.Parameters>"))
+         ]));
+
+        // 2) Wrap partial type with the method GetParameters
+        var partialWithMethod = BuildPartialContainer(target, [getParametersMethod], baseList);
+        var compilationUnitWithMethod = CompilationUnit()
+            .WithMembers(SingletonList(partialWithMethod))
+            .NormalizeWhitespace();
+
+        return (compilationUnitWithMethod.GetText(Encoding.UTF8), safeName);
     }
 
     // ---------- helpers ----------
 
     // Builds a partial wrapper for the target type and inserts members inside (respecting namespace/nested type hierarchy).
-    private static MemberDeclarationSyntax BuildPartialContainer(INamedTypeSymbol targetType, IEnumerable<MemberDeclarationSyntax> members)
+    // Builds a partial wrapper for the target type and inserts members inside
+    // (respecting namespace/nested type hierarchy). Optionally applies a base list
+    // (interfaces/base type) to the *target* (innermost) partial declaration.
+    private static MemberDeclarationSyntax BuildPartialContainer(
+        INamedTypeSymbol targetType,
+        IEnumerable<MemberDeclarationSyntax> members,
+        BaseListSyntax? baseListSyntax = null)
     {
-        // Collect the chain of containing types from outermost to innermost
+        // 1) Collect the chain of nested types from outermost to innermost
         var typeChain = new Stack<INamedTypeSymbol>();
-        for (var currentType = targetType; currentType is not null; currentType = currentType.ContainingType)
+        for (var typeCursor = targetType; typeCursor is not null; typeCursor = typeCursor.ContainingType)
         {
-            typeChain.Push(currentType);
+            typeChain.Push(typeCursor);
         }
 
-        // Start from the outermost type
-        TypeDeclarationSyntax? currentDeclaration = null;
-
-        while (typeChain.Count > 0)
+        // 2) Create partial-type headers for each element in the chain
+        var declarations = new List<TypeDeclarationSyntax>(typeChain.Count);
+        foreach (var symbol in typeChain)
         {
-            var symbol = typeChain.Pop();
-
-            var typeHeader = CreatePartialTypeHeader(symbol);
-
-            if (currentDeclaration is null)
-            {
-                currentDeclaration = typeHeader;
-            }
-            else
-            {
-                currentDeclaration = typeHeader.WithMembers(SingletonList<MemberDeclarationSyntax>(currentDeclaration));
-            }
+            declarations.Add(CreatePartialTypeHeader(symbol));
         }
 
-        // Now currentDeclaration is the innermost shell of the target type — add our members
-        currentDeclaration = currentDeclaration!.WithMembers(currentDeclaration.Members.AddRange(members));
-
-        // Wrap in namespace if present
-        var ns = targetType.ContainingNamespace;
-        if (ns is { IsGlobalNamespace: false })
+        // 3) Apply the base list (if provided) to the target (innermost) type
+        var innermostIndex = declarations.Count - 1;
+        if (baseListSyntax is not null)
         {
-            var nsDecl = NamespaceDeclaration(ParseName(ns.ToDisplayString()))
-                .WithMembers(SingletonList<MemberDeclarationSyntax>(currentDeclaration));
-            return nsDecl;
+            declarations[innermostIndex] = declarations[innermostIndex].WithBaseList(baseListSyntax);
         }
 
-        return currentDeclaration;
+        // 4) Insert the provided members into the target (innermost) type
+        var current = declarations[innermostIndex]
+            .WithMembers(declarations[innermostIndex].Members.AddRange(members));
+
+        // 5) Wrap the innermost type with its outer containers:
+        //    …Outer { …Inner { Target { members } } }
+        for (var i = innermostIndex - 1; i >= 0; i--)
+        {
+            current = declarations[i].WithMembers(SingletonList<MemberDeclarationSyntax>(current));
+        }
+
+        // 6) Wrap with the namespace if present
+        var containingNamespace = targetType.ContainingNamespace;
+        if (containingNamespace is { IsGlobalNamespace: false })
+        {
+            return NamespaceDeclaration(ParseName(containingNamespace.ToDisplayString()))
+                .WithMembers(SingletonList<MemberDeclarationSyntax>(current));
+        }
+
+        return current;
     }
+
 
     private static TypeDeclarationSyntax CreatePartialTypeHeader(INamedTypeSymbol type)
     {
@@ -215,6 +240,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         return declaration;
     }
 
+    private static string CreateFileName(string fullyQualifiedName, string name) => $"{SafeFileMoniker(fullyQualifiedName)}.{name}.g.cs";
     private static string SafeFileMoniker(string fullyQualifiedName)
     {
         // "global::A.B.C" → "A_B_C"
