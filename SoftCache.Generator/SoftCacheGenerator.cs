@@ -63,10 +63,12 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
 
             var parametersText = CreateParametersText(target, extractedParameters);
             var getParametersText = CreateGetParametersText(target, extractedParameters);
+            var softEqualsText = CreateSoftEqualsText(target, extractedParameters);
             var softHashText = CreateSoftHashBundleText(target, options, extractedParameters);
 
             spc.AddSource(parametersText);
             spc.AddSource(getParametersText);
+            spc.AddSource(softEqualsText);
             spc.AddSource(softHashText);
         });
     }
@@ -139,6 +141,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                 .WithBody(Block(getParametersStatement, returnStatement))
                 .WithLeadingTrivia(ParseLeadingTrivia("""
                 /// <inheritdoc cref="global::SoftCache.ISoftCacheable{T}.GetSoftHashCode"/>
+                
                 """));
 
         // 2) Static MakeSoftHash(...) — choose implementation by SoftHashKind
@@ -153,16 +156,89 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         // 4) Wrap everything into a partial of the target type (respecting namespace and nested types)
         var partialDeclaration = BuildPartialContainer(
             target,
-            new MemberDeclarationSyntax[] { getSoftHashCodeMethod, makeSoftHashMethod },
+            [getSoftHashCodeMethod, makeSoftHashMethod],
             baseListSyntax: baseList);
 
         var compilationUnit = CompilationUnit()
-            .WithMembers(SingletonList<MemberDeclarationSyntax>(partialDeclaration))
+            .WithMembers(SingletonList(partialDeclaration))
             .NormalizeWhitespace();
 
         return (compilationUnit.GetText(Encoding.UTF8), CreateFileName(fullyQualifiedName, "SoftHash"));
     }
 
+    private static GeneratedSourceFile CreateSoftEqualsText(
+        INamedTypeSymbol target,
+        ImmutableArray<ExtractedParameter> extractedParameters)
+    {
+        var fullyQualifiedTypeName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var safeFileName = CreateFileName(fullyQualifiedTypeName, "SoftEquals");
+
+        // Build a chain: this.X == parameters.X
+        ExpressionSyntax? combinedCondition = null;
+
+        foreach (var parameter in extractedParameters)
+        {
+            var comparisonExpression = BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    ThisExpression(),
+                    IdentifierName(parameter.Name)),
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("parameters"),
+                    IdentifierName(parameter.Name)));
+
+            combinedCondition = combinedCondition is null
+                ? comparisonExpression
+                : BinaryExpression(SyntaxKind.LogicalAndExpression, combinedCondition, comparisonExpression);
+        }
+
+        // If there are no parameters — always true
+        var returnStatement = ReturnStatement(combinedCondition ?? LiteralExpression(SyntaxKind.TrueLiteralExpression));
+
+        var xmlDocumentation = ParseLeadingTrivia($$"""
+        /// <summary>
+        /// Determines whether this object is considered equivalent to the given parameter set
+        /// for the purposes of cache lookup.
+        /// <para>
+        /// This method performs a fast, field-by-field comparison of the parameters
+        /// that define the object's identity.
+        /// </para>
+        /// </summary>
+        /// <param name="parameters">
+        /// The immutable parameters describing a candidate object to compare against this instance.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if the parameter values match this instance's identity;
+        /// otherwise, <see langword="false"/>.
+        /// </returns>
+
+        """);
+
+        var parametersType = ParseTypeName($"{fullyQualifiedTypeName}.Parameters");
+
+        var methodDeclaration = MethodDeclaration(
+                PredefinedType(Token(SyntaxKind.BoolKeyword)),
+                Identifier("SoftEquals"))
+            .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+            .WithParameterList(
+                ParameterList(
+                    SingletonSeparatedList(
+                        Parameter(Identifier("parameters"))
+                            .WithModifiers(TokenList(Token(SyntaxKind.ScopedKeyword), Token(SyntaxKind.InKeyword)))
+                            .WithType(parametersType))))
+            .WithBody(Block(returnStatement))
+            .WithLeadingTrivia(xmlDocumentation);
+
+        var partialContainer = BuildPartialContainer(target, new[] { methodDeclaration });
+
+        var compilationUnit = CompilationUnit()
+            .WithMembers(SingletonList<MemberDeclarationSyntax>(partialContainer))
+            .NormalizeWhitespace();
+
+        return (compilationUnit.GetText(Encoding.UTF8), safeFileName);
+    }
 
 
     // ---------- helpers ----------

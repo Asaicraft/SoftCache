@@ -30,6 +30,7 @@ public sealed class Xor16HashMaker : IStaticHashMaker
             /// </summary>
             /// <param name="parameters">Immutable parameter pack.</param>
             /// <returns>A compact 16-bit hash.</returns>
+            
             """);
 
         // Statements: uint h = 0u;

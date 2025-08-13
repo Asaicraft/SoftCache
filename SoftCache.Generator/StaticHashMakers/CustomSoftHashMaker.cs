@@ -26,6 +26,7 @@ public sealed class CustomSoftHashMaker : IStaticHashMaker
             /// </summary>
             /// <param name="parameters">Immutable parameter pack.</param>
             /// <returns>User-defined 16-bit hash.</returns>
+            
             """);
 
         // static partial ushort MakeSoftHash(in global::<FQN>.Parameters parameters);
