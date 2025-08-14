@@ -43,8 +43,7 @@ internal partial class AppJsonSerializerContext : JsonSerializerContext { }
     HashKind = SoftHashKind.XorFold16,
     Concurrency = SoftCacheConcurrency.None,
     GenerateGlobalSeed = false,
-    EnableDebugMetrics = false,
-    Domain = "Todos")]
+    EnableDebugMetrics = false)]
 public sealed partial class TodoQueryKey
 {
     public string? Query { get; }

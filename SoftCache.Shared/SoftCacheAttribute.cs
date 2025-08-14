@@ -76,13 +76,4 @@ public sealed class SoftCacheAttribute : Attribute
     /// </para>
     /// </summary>
     public bool EnableDebugMetrics { get; set; } = false;
-
-    /// <summary>
-    /// Optional domain key for multi-cache separation.
-    /// <para>
-    /// Types sharing the same domain value will use the same cache instance.
-    /// Use to group related cached objects (e.g., by subsystem or DTO type family).
-    /// </para>
-    /// </summary>
-    public string? Domain { get; set; }
 }

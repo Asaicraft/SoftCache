@@ -386,14 +386,9 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         return new string(chars);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<Pending>")]
     public static string SeedIdentifier(SoftCacheOptions options, string fullyQualifiedType)
     {
-        if (!string.IsNullOrEmpty(options.Domain))
-        {
-            // Domain-wide seed
-            return $"__SoftCacheDomainSeed_{Sanitize(options.Domain!)}";
-        }
-
         // fullyQualifiedType = global::Ns.Type
         var shortName = fullyQualifiedType.StartsWith("global::", StringComparison.Ordinal)
             ? fullyQualifiedType["global::".Length..]
@@ -420,7 +415,6 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         var concurrency = SoftCacheConcurrency.None;
         var generateSeed = false;
         var enableDebugMetrics = false;
-        string? domain = null;
 
         foreach (var namedArgument in attributeData.NamedArguments)
         {
@@ -490,15 +484,6 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                     }
                     break;
                 }
-
-                case nameof(SoftCacheOptions.Domain):
-                {
-                    if (typedConstant.Value is string domainValue)
-                    {
-                        domain = domainValue;
-                    }
-                    break;
-                }
             }
         }
 
@@ -526,7 +511,6 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             Concurrency = concurrency,
             GenerateGlobalSeed = generateSeed,
             EnableDebugMetrics = enableDebugMetrics,
-            Domain = domain,
             TargetType = targetType
         };
     }

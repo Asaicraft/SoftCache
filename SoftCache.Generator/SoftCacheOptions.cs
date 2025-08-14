@@ -60,15 +60,6 @@ public sealed record SoftCacheOptions
     public bool EnableDebugMetrics { get; init; } = false;
 
     /// <summary>
-    /// Optional domain key for multi-cache separation.
-    /// <para>
-    /// Types sharing the same domain value will use the same cache instance.
-    /// Use to group related cached objects (e.g., by subsystem or DTO type family).
-    /// </para>
-    /// </summary>
-    public string? Domain { get; init; }
-
-    /// <summary>
     /// The target type for which the cache is being generated.
     /// </summary>
     public required ITypeSymbol TargetType { get; init; }
