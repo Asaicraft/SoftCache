@@ -26,69 +26,88 @@ public sealed class Xor16HashMaker : IStaticHashMaker
             /// <summary>
             /// Computes a 16-bit soft hash using per-type folding:
             /// 64-bit → XOR of four 16-bit quarters; 32-bit → XOR of two 16-bit halves.
-            /// Floats/doubles are read via unsafe bit reinterpretation.
+            /// Floats/doubles are read via bit reinterpretation with Unsafe.As (no /unsafe).
             /// </summary>
             /// <param name="parameters">Immutable parameter pack.</param>
             /// <returns>A compact 16-bit hash.</returns>
             
             """);
 
-        // Statements: uint h = 0u;
         var statements = new List<StatementSyntax>
         {
             ParseStatement("uint h = 0u;")
         };
 
-        // Inner unchecked { ... }
         var innerStatements = new List<StatementSyntax>();
 
         for (var i = 0; i < extractedParameters.Length; i++)
         {
-            var parameter = extractedParameters[i];
-            var accessExpression = $"parameters.{parameter.Name}";
-            var kind = Classify(parameter.Type as ITypeSymbol ?? throw new InvalidOperationException("ITypeSymbol expected"));
+            var extractedParameter = extractedParameters[i];
+            var accessExpression = $"parameters.{extractedParameter.Name}";
+            var kind = Classify(extractedParameter.Type as ITypeSymbol ?? throw new InvalidOperationException("ITypeSymbol expected"));
 
             switch (kind)
             {
                 case Kind.SmallInt16:
+                {
                     innerStatements.Add(ParseStatement($"uint x{i} = (uint){accessExpression};"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
 
                 case Kind.Int32Like:
+                {
                     innerStatements.Add(ParseStatement($"uint x{i} = (uint){accessExpression};"));
                     innerStatements.Add(ParseStatement($"x{i} ^= x{i} >> 16;"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
 
                 case Kind.Int64Like:
+                {
                     innerStatements.Add(ParseStatement($"ulong l{i} = (ulong){accessExpression};"));
                     innerStatements.Add(ParseStatement($"uint x{i} = (uint)(l{i} ^ (l{i} >> 16) ^ (l{i} >> 32) ^ (l{i} >> 48));"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
 
                 case Kind.Float32:
-                    // Cannot take the address of a property — store into a temporary local variable.
+                {
+                    // No /unsafe: bit reinterpretation via Unsafe.As<float, uint>(ref value)
                     innerStatements.Add(ParseStatement($"float __f{i} = {accessExpression};"));
-                    innerStatements.Add(ParseStatement($"uint x{i} = *(uint*)&__f{i};"));
+                    innerStatements.Add(ParseStatement($"uint x{i} = global::System.Runtime.CompilerServices.Unsafe.As<float, uint>(ref __f{i});"));
                     innerStatements.Add(ParseStatement($"x{i} ^= x{i} >> 16;"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
 
                 case Kind.Float64:
+                {
+                    // No /unsafe: bit reinterpretation via Unsafe.As<double, ulong>(ref value)
                     innerStatements.Add(ParseStatement($"double __d{i} = {accessExpression};"));
-                    innerStatements.Add(ParseStatement($"ulong l{i} = *(ulong*)&__d{i};"));
+                    innerStatements.Add(ParseStatement($"ulong l{i} = global::System.Runtime.CompilerServices.Unsafe.As<double, ulong>(ref __d{i});"));
                     innerStatements.Add(ParseStatement($"uint x{i} = (uint)(l{i} ^ (l{i} >> 16) ^ (l{i} >> 32) ^ (l{i} >> 48));"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
+
+                case Kind.Bool:
+                {
+                    // No /unsafe: bool is treated as a byte (0 or 1)
+                    innerStatements.Add(ParseStatement($"uint x{i} = {accessExpression} ? 1u : 0u;"));
+                    innerStatements.Add(ParseStatement($"h ^= x{i};"));
+                    break;
+                }
 
                 case Kind.ObjectLike:
                 default:
+                {
                     innerStatements.Add(ParseStatement($"object? o{i} = (object?){accessExpression};"));
                     innerStatements.Add(ParseStatement($"uint x{i} = o{i} is null ? 0u : (uint)global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(o{i});"));
                     innerStatements.Add(ParseStatement($"x{i} ^= x{i} >> 16;"));
                     innerStatements.Add(ParseStatement($"h ^= x{i};"));
                     break;
+                }
             }
         }
 
@@ -98,7 +117,7 @@ public sealed class Xor16HashMaker : IStaticHashMaker
                 Block(innerStatements)));
 
         var seedExpression = softCacheOptions.GenerateGlobalSeed
-            ? $"(ushort)(h ^ {SeedIdentifier(softCacheOptions, fullyQualifiedType)}.Seed)"
+            ? $"(ushort)(h ^ {SoftCacheGenerator.SeedIdentifier(softCacheOptions, fullyQualifiedType)}.Seed)"
             : "(ushort)h";
 
         statements.Add(ParseStatement($"return {seedExpression};"));
@@ -110,8 +129,7 @@ public sealed class Xor16HashMaker : IStaticHashMaker
                 Identifier("MakeSoftHash"))
             .WithModifiers(TokenList(
                 Token(SyntaxKind.PublicKeyword),
-                Token(SyntaxKind.StaticKeyword),
-                Token(SyntaxKind.UnsafeKeyword)))
+                Token(SyntaxKind.StaticKeyword))) // no /unsafe
             .WithParameterList(
                 ParameterList(
                     SingletonSeparatedList(
@@ -124,51 +142,36 @@ public sealed class Xor16HashMaker : IStaticHashMaker
         return methodDeclaration;
     }
 
-    private enum Kind { SmallInt16, Int32Like, Int64Like, Float32, Float64, ObjectLike }
+    private enum Kind { Bool, SmallInt16, Int32Like, Int64Like, Float32, Float64, ObjectLike }
 
-    private static Kind Classify(ITypeSymbol type)
+    private static Kind Classify(ITypeSymbol typeSymbol)
     {
-        // Nullable<T> → treat as object-like (simplified)
-        if (type is INamedTypeSymbol namedType && namedType.ConstructedFrom?.SpecialType == SpecialType.System_Nullable_T)
+        if (typeSymbol is INamedTypeSymbol named && named.ConstructedFrom?.SpecialType == SpecialType.System_Nullable_T)
         {
             return Kind.ObjectLike;
         }
 
-        // Enum → use underlying type
-        if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol enumNamedType && enumNamedType.EnumUnderlyingType is ITypeSymbol underlyingType)
+        if (typeSymbol.TypeKind == TypeKind.Enum && typeSymbol is INamedTypeSymbol enumNamed && enumNamed.EnumUnderlyingType is ITypeSymbol underlying)
         {
-            return Classify(underlyingType);
+            return Classify(underlying);
         }
 
-        switch (type.SpecialType)
+        return typeSymbol.SpecialType switch
         {
-            // 8/16-bit — direct mix
-            case SpecialType.System_SByte:
-            case SpecialType.System_Byte:
-            case SpecialType.System_Int16:
-            case SpecialType.System_UInt16:
-                return Kind.SmallInt16;
+            SpecialType.System_SByte or SpecialType.System_Byte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 => Kind.SmallInt16,
 
-            // 32-bit lane — fold halves
-            case SpecialType.System_Int32:
-            case SpecialType.System_UInt32:
-            case SpecialType.System_Char:
-            case SpecialType.System_Boolean:
-                return Kind.Int32Like;
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Char  => Kind.Int32Like,
 
-            // 64-bit lane — fold quarters
-            case SpecialType.System_Int64:
-            case SpecialType.System_UInt64:
-                return Kind.Int64Like;
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => Kind.Int64Like,
+            
+            SpecialType.System_Single => Kind.Float32,
+            SpecialType.System_Double => Kind.Float64,
 
-            case SpecialType.System_Single:
-                return Kind.Float32;
+            SpecialType.System_Boolean => Kind.Bool,
 
-            case SpecialType.System_Double:
-                return Kind.Float64;
-
-            default:
-                return Kind.ObjectLike;
-        }
+            _ => Kind.ObjectLike
+        };
     }
 }

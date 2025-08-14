@@ -31,7 +31,7 @@ todosApi.MapGet("/{id}", (int id) =>
 
 app.Run();
 
-public record Todo(int Id, string? Title, DateOnly? DueBy = null, bool IsComplete = false);
+public sealed record Todo(int Id, string? Title, DateOnly? DueBy = null, bool IsComplete = false);
 
 [JsonSerializable(typeof(Todo[]))]
 [JsonSerializable(typeof(TodoQueryKey))]
@@ -53,6 +53,8 @@ public sealed partial class TodoQueryKey
     public bool IsComplete { get; }
     public int Page { get; }
     public int PageSize { get; }
+    public float Priority { get; } 
+    public double CompletionScore { get; }
 
     public TodoQueryKey(
         string? query,
@@ -60,7 +62,9 @@ public sealed partial class TodoQueryKey
         int toDayNumber,
         bool isComplete,
         int page,
-        int pageSize)
+        int pageSize,
+        float priority,
+        double completionScore)
     {
         Query = query;
         FromDayNumber = fromDayNumber;
@@ -68,5 +72,7 @@ public sealed partial class TodoQueryKey
         IsComplete = isComplete;
         Page = page;
         PageSize = pageSize;
+        Priority = priority;
+        CompletionScore = completionScore;
     }
 }
