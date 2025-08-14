@@ -21,7 +21,7 @@ public sealed partial class TodoQueryKey
         PageSize = pageSize;
     }
 
-    // Минимальный Parameters для бенча (как у твоего генератора)
+    // Minimal Parameters for the benchmark (mirrors the generator output)
     public readonly struct Parameters
     {
         public readonly string? Query { get; }
@@ -42,14 +42,14 @@ public sealed partial class TodoQueryKey
         }
     }
 
-    // Твоя реализация MakeSoftHash — скопировал сюда для самодостаточности бенча
+    // Your MakeSoftHash implementation — inlined here for a self-contained benchmark
     public static unsafe ushort MakeSoftHash(scoped in Parameters parameters)
     {
         uint h = 0u;
         unchecked
         {
-            object? o0 = (object?)parameters.Query;
-            uint x0 = o0 is null ? 0u : (uint)RuntimeHelpers.GetHashCode(o0);
+            object? object0 = (object?)parameters.Query;
+            uint x0 = object0 is null ? 0u : (uint)RuntimeHelpers.GetHashCode(object0);
             x0 ^= x0 >> 16;
             h ^= x0;
 
@@ -79,51 +79,51 @@ public sealed partial class TodoQueryKey
 }
 
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[SimpleJob]
 public class HashBench
 {
-    // Размер выборки для замеров/коллизий
+    // Sample size used for timing and collision measurements
     [Params(10_000, 100_000, 500_000)]
-    public int N;
+    public int SampleSize;
 
     private TodoQueryKey.Parameters[] _data = default!;
 
     [GlobalSetup]
     public void Setup()
     {
-        // Детерминированный набор
-        var rng = new Random(12345);
-        var vocab = CreateVocabulary(rng, 2048);
+        // Deterministic dataset
+        var random = new Random(12345);
+        var vocabulary = CreateVocabulary(random, 2048);
 
-        _data = new TodoQueryKey.Parameters[N];
-        for (int i = 0; i < N; i++)
+        _data = new TodoQueryKey.Parameters[SampleSize];
+        for (var i = 0; i < SampleSize; i++)
         {
-            // немного вариативности, чтобы получить реальные коллизии
-            var q = (i % 7 == 0) ? null : vocab[rng.Next(vocab.Length)];
-            var from = rng.Next(73_000, 85_000);      // DateOnly.DayNumber ~ 2000..2030
-            var to = from + rng.Next(0, 30);
+            // Add some variability to produce realistic collisions
+            var queryText = (i % 7 == 0) ? null : vocabulary[random.Next(vocabulary.Length)];
+            var fromDayNumber = random.Next(73_000, 85_000); // DateOnly.DayNumber ~ 2000..2030
+            var toDayNumber = fromDayNumber + random.Next(0, 30);
             var isComplete = (i & 1) == 0;
-            var page = 1 + rng.Next(0, 128);
-            var pageSize = 1 + rng.Next(1, 128);
+            var page = 1 + random.Next(0, 128);
+            var pageSize = 1 + random.Next(1, 128);
 
-            _data[i] = new TodoQueryKey.Parameters(q, from, to, isComplete, page, pageSize);
+            _data[i] = new TodoQueryKey.Parameters(queryText, fromDayNumber, toDayNumber, isComplete, page, pageSize);
         }
     }
 
-    // ---------- ВРЕМЯ ----------
+    // ---------- TIME ----------
 
     [Benchmark(Baseline = true)]
     public ulong HashCodeCombine_Time()
     {
-        // суммируем хеши, чтобы JIT не выкинул вычисления
+        // Accumulate hashes so JIT cannot eliminate the computation
         ulong sum = 0;
         var data = _data;
 
-        for (int i = 0; i < data.Length; i++)
+        for (var i = 0; i < data.Length; i++)
         {
-            ref readonly var p = ref data[i];
-            // fair: берём стандартный HashCode.Combine и режем до 16-bit
-            var h32 = HashCode.Combine(p.Query, p.FromDayNumber, p.ToDayNumber, p.IsComplete, p.Page, p.PageSize);
+            ref readonly var parameters = ref data[i];
+            // Fair baseline: use standard HashCode.Combine and truncate to 16-bit
+            var h32 = HashCode.Combine(parameters.Query, parameters.FromDayNumber, parameters.ToDayNumber, parameters.IsComplete, parameters.Page, parameters.PageSize);
             sum += (ushort)h32;
         }
 
@@ -136,67 +136,30 @@ public class HashBench
         ulong sum = 0;
         var data = _data;
 
-        for (int i = 0; i < data.Length; i++)
+        for (var i = 0; i < data.Length; i++)
         {
-            ref readonly var p = ref data[i];
-            sum += TodoQueryKey.MakeSoftHash(in p);
+            ref readonly var parameters = ref data[i];
+            sum += TodoQueryKey.MakeSoftHash(in parameters);
         }
 
         return sum;
     }
 
-    // ---------- КОЛЛИЗИИ ----------
-
-    [Benchmark]
-    public int HashCodeCombine_Collisions()
+    private static string[] CreateVocabulary(Random random, int size)
     {
-        var set = new HashSet<ushort>(capacity: _data.Length * 2);
-        var data = _data;
-
-        for (int i = 0; i < data.Length; i++)
+        var array = new string[size];
+        for (var i = 0; i < size; i++)
         {
-            ref readonly var p = ref data[i];
-            var h32 = HashCode.Combine(p.Query, p.FromDayNumber, p.ToDayNumber, p.IsComplete, p.Page, p.PageSize);
-            var h16 = (ushort)h32;
-            set.Add(h16);
-        }
-
-        return data.Length - set.Count; // сколько «село» в один и тот же 16-бит слот
-    }
-
-    [Benchmark]
-    public int SoftHash_Collisions()
-    {
-        var set = new HashSet<ushort>(capacity: _data.Length * 2);
-        var data = _data;
-
-        for (int i = 0; i < data.Length; i++)
-        {
-            ref readonly var p = ref data[i];
-            var h16 = TodoQueryKey.MakeSoftHash(in p);
-            set.Add(h16);
-        }
-
-        return data.Length - set.Count;
-    }
-
-    // ---------- helpers ----------
-
-    private static string[] CreateVocabulary(Random rng, int size)
-    {
-        var arr = new string[size];
-        for (int i = 0; i < size; i++)
-        {
-            // короткие ключевые слова разной длины — имитируют запросы
-            var len = 3 + rng.Next(0, 10);
-            var chars = new char[len];
-            for (int j = 0; j < len; j++)
+            // Short keywords of varying length — emulate search queries
+            var length = 3 + random.Next(0, 10);
+            var characters = new char[length];
+            for (var j = 0; j < length; j++)
             {
-                // простая a-z
-                chars[j] = (char)('a' + rng.Next(0, 26));
+                // a-z letters
+                characters[j] = (char)('a' + random.Next(0, 26));
             }
-            arr[i] = new string(chars);
+            array[i] = new string(characters);
         }
-        return arr;
+        return array;
     }
 }
