@@ -389,12 +389,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<Pending>")]
     public static string SeedIdentifier(SoftCacheOptions options, string fullyQualifiedType)
     {
-        // fullyQualifiedType = global::Ns.Type
-        var shortName = fullyQualifiedType.StartsWith("global::", StringComparison.Ordinal)
-            ? fullyQualifiedType["global::".Length..]
-            : fullyQualifiedType;
-
-        return $"__SoftCacheTypeSeed_{Sanitize(shortName.Replace('.', '_'))}";
+        return $"{fullyQualifiedType}.SoftCache.s_seed";
     }
 
     public static string Sanitize(string identifier)
