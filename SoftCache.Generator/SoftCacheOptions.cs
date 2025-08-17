@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
+using SoftCache.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -34,6 +35,11 @@ public sealed record SoftCacheOptions
     /// Concurrency control mode used when writing into the cache.
     /// </summary>
     public SoftCacheConcurrency Concurrency { get; init; } = SoftCacheConcurrency.None;
+
+    /// <summary>
+    /// Eviction policy when a bucket is full.
+    /// </summary>
+    public SoftCacheEvictionPolicy Eviction { get; init; } = SoftCacheEvictionPolicy.LruApprox;
 
     /// <summary>
     /// Whether to generate a random global seed for the hash function at application startup.

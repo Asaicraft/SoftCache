@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SoftCache;
+namespace SoftCache.Annotations;
 
 /// <summary>
 /// Built-in lightweight hash algorithms for SoftCache.

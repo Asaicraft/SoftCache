@@ -54,6 +54,11 @@ public sealed class SoftCacheAttribute : Attribute
     public SoftCacheConcurrency Concurrency { get; set; } = SoftCacheConcurrency.None;
 
     /// <summary>
+    /// Eviction policy when a bucket is full.
+    /// </summary>
+    public SoftCacheEvictionPolicy Eviction { get; init; } = SoftCacheEvictionPolicy.LruApprox;
+
+    /// <summary>
     /// Whether to generate a random global seed for the hash function at application startup.
     /// <para>
     /// If <see langword="true"/>, the generator will insert a 

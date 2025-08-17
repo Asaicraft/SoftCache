@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using SoftCache.Annotations;
 using SoftCache.Generator.StaticHashMakers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -410,6 +411,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         var concurrency = SoftCacheConcurrency.None;
         var generateSeed = false;
         var enableDebugMetrics = false;
+        var eviction = SoftCacheEvictionPolicy.Overwrite;
 
         foreach (var namedArgument in attributeData.NamedArguments)
         {
@@ -479,6 +481,19 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                     }
                     break;
                 }
+
+                case nameof(SoftCacheOptions.Eviction):
+                {
+                    if (typedConstant.Value is int evictionInt)
+                    {
+                        eviction = (SoftCacheEvictionPolicy)evictionInt;
+                    }
+                    else if (typedConstant.Type?.TypeKind == TypeKind.Enum && typedConstant.Value is object evictionObj)
+                    {
+                        eviction = (SoftCacheEvictionPolicy)System.Convert.ToInt32(evictionObj);
+                    }
+                    break;
+                }
             }
         }
 
@@ -504,6 +519,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             Associativity = associativity,
             HashKind = hashKind,
             Concurrency = concurrency,
+            Eviction = eviction,
             GenerateGlobalSeed = generateSeed,
             EnableDebugMetrics = enableDebugMetrics,
             TargetType = targetType

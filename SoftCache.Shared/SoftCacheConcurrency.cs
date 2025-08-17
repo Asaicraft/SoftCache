@@ -1,4 +1,4 @@
-﻿namespace SoftCache;
+﻿namespace SoftCache.Annotations;
 
 /// <summary>
 /// Concurrency control policies for SoftCache writes.

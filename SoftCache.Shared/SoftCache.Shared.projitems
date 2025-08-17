@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)SoftCacheAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SoftCacheConcurrency.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SoftCacheEvictionPolicy.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SoftHashKind.cs" />
   </ItemGroup>
 </Project>
