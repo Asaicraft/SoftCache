@@ -10,5 +10,5 @@ namespace SoftCache.Generator.SoftCacheMaker;
 /// </summary>
 public interface IWritePolicyMaker
 {
-    public MethodDeclarationSyntax CreateWriter(SoftCacheFacts softCacheFacts);
+    public MethodDeclarationSyntax CreateWriter(CacheGenContext cacheGenContext);
 }

@@ -22,6 +22,10 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="SoftCacheMaker\WritePolicyMakers\" />
+  </ItemGroup>
+
   <Import Project="..\SoftCache.Shared\SoftCache.Shared.projitems" Label="Shared" />
 
 </Project>
