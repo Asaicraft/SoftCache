@@ -6,7 +6,7 @@ using System.Text;
 namespace SoftCache.Generator.SoftCacheMaker;
 
 /// <summary>
-/// Generate AddToCache(SoftCacheableObject cache)
+/// Generate AddToCache(SoftCacheableObject cache, ushort hash)
 /// </summary>
 public interface IWritePolicyMaker
 {

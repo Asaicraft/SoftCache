@@ -6,7 +6,7 @@ using System.Text;
 namespace SoftCache.Generator.SoftCacheMaker;
 public interface IReplacementPolicyMaker
 {
-    public IEnumerable<MemberDeclarationSyntax> CreateReplacementHelpers(CacheGenContext ctx);
+    public IEnumerable<MemberDeclarationSyntax> CreateReplacementHelpers(CacheGenContext context);
 
-    public StatementSyntax CreateVictimSelectionStatement(CacheGenContext ctx);
+    public StatementSyntax CreateVictimSelectionStatement(CacheGenContext context);
 }

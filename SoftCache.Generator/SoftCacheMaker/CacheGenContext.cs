@@ -7,11 +7,23 @@ namespace SoftCache.Generator.SoftCacheMaker;
 public sealed record CacheGenContext(
     SoftCacheOptions Options,
     INamedTypeSymbol TargetType,
-    string FullyQualifiedTypeName,     // "global::Ns.Type"
-    string ParametersTypeName,         // "global::Ns.Type.Parameters"
-    string CacheClassName,             // "SoftCache"
-    string EntryStructName,            // "Entry"
-    string CacheFieldName,             // "s_cache"
-    string StampFieldName              // "s_stamp"
+
+    // "global::Ns.Type"
+    string FullyQualifiedTypeName,
+
+    // "global::Ns.Type.Parameters"
+    string ParametersTypeName,
+
+    // "SoftCache"
+    string CacheClassName,
+
+    // "Entry"
+    string EntryStructName,
+
+    // "s_cache"
+    string CacheFieldName,
+
+    // "s_stamp"
+    string StampFieldName
 );
 
