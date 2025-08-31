@@ -58,9 +58,20 @@ public abstract class BaseWritePolicyMaker : IWritePolicyMaker
     /// </summary>
     protected virtual IEnumerable<StatementSyntax> AddIndexSelector(CacheGenContext context)
     {
-        var expression = context.Options.CacheBits == 16
-            ? "hash"
-            : $"hash & {context.CacheMaskName}";
+        var cacheSize = 1 << context.Options.CacheBits;
+        var fastModMultiplier = (ulong.MaxValue / (uint)cacheSize) + 1UL;
+
+        string expression;
+        if (context.Options.CacheBits == 16)
+        {
+            // Special case: just cast ushort to int, no need for masking
+            expression = "unchecked((int)hash)";
+        }
+        else
+        {
+            // Embed FastMod directly into generated source
+            expression = $"(int)((((({fastModMultiplier}UL * (ulong)hash) >> 32) + 1) * {cacheSize} >> 32))";
+        }
 
         yield return ParseStatement($"var {context.IndexName} = {expression};");
     }
