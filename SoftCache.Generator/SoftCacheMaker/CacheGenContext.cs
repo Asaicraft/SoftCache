@@ -8,6 +8,13 @@ public record struct CacheGenContext(
     SoftCacheOptions Options,
     INamedTypeSymbol TargetType,
 
+    /// <summary>
+    /// Actual number of slots in the cache, chosen by the generator.  
+    /// Unlike <see cref="SoftCacheOptions.CacheBits"/>, this value is not constrained to powers of two.  
+    /// Used directly in generated code for index calculation.
+    /// </summary>
+    int CacheSize,
+
     // "global::Ns.Type"
     string FullyQualifiedTypeName,
 

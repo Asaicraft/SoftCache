@@ -116,7 +116,7 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// </remarks>
     protected virtual IEnumerable<StatementSyntax> AddIndexSelector(CacheGenContext context)
     {
-        var cacheSize = 1 << context.Options.CacheBits;
+        var cacheSize = context.CacheSize;
         var fastModMultiplier = (ulong.MaxValue / (uint)cacheSize) + 1UL;
 
         string expression;
