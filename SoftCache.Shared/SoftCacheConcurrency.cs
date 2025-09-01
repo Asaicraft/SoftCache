@@ -21,4 +21,12 @@ public enum SoftCacheConcurrency
     /// Suitable for scenarios where ordering and visibility matter but lock-free retry loops are unnecessary.
     /// </summary>
     CAS,
+
+    /// <summary>
+    /// Full mutual exclusion via locking.  
+    /// Writers acquire a monitor or other synchronization primitive before modifying the cache entry,  
+    /// ensuring exclusive access and strong consistency across threads.  
+    /// This policy eliminates write races entirely but has the highest runtime overhead.
+    /// </summary>
+    Lock,
 }
