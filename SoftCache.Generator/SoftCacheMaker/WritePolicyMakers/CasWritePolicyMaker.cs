@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using SoftCache.Annotations;
 
-namespace SoftCache.Generator.SoftCacheMaker.WritePolicyMakers;
+namespace SoftCache.Generator.SoftCacheMakers.WritePolicyMakers;
 
 /// <summary>
 /// CAS writer with per-entry version flag (even = stable, odd = write-in-progress).

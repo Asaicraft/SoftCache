@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SoftCache.Generator.SoftCacheMaker;
+namespace SoftCache.Generator.SoftCacheMakers;
 public interface ISoftCacheMaker
 {
     public ClassDeclarationSyntax CreateSoftCache(SoftCacheOptions softCacheOptions, bool isInternalElsePublic = true);

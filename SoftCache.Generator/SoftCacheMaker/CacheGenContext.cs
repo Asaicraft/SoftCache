@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SoftCache.Generator.SoftCacheMaker;
+namespace SoftCache.Generator.SoftCacheMakers;
 public record struct CacheGenContext(
     SoftCacheOptions Options,
     INamedTypeSymbol TargetType,
@@ -14,6 +14,8 @@ public record struct CacheGenContext(
     /// Used directly in generated code for index calculation.
     /// </summary>
     int CacheSize,
+
+    bool IsInternalElsePublic,
 
     // "global::Ns.Type"
     string FullyQualifiedTypeName,

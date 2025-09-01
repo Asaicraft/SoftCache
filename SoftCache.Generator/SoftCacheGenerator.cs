@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using SoftCache.Annotations;
+using SoftCache.Generator.SoftCacheMakers;
 using SoftCache.Generator.StaticHashMakers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -66,11 +67,13 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             var getParametersText = CreateGetParametersText(target, extractedParameters);
             var softEqualsText = CreateSoftEqualsText(target, extractedParameters);
             var softHashText = CreateSoftHashBundleText(target, options, extractedParameters);
+            var softCache = CreateSoftCacheClass(target, options, extractedParameters);
 
             spc.AddSource(parametersText);
             spc.AddSource(getParametersText);
             spc.AddSource(softEqualsText);
             spc.AddSource(softHashText);
+            spc.AddSource(softCache);
         });
     }
 
@@ -240,6 +243,34 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
 
         return (compilationUnit.GetText(Encoding.UTF8), safeFileName);
     }
+
+    private static GeneratedSourceFile CreateSoftCacheClass(
+        INamedTypeSymbol target,
+        SoftCacheOptions options,
+        ImmutableArray<ExtractedParameter> extractedParameters)
+    {
+        var generator = SoftCacheMaker.Instance;
+
+        // The generated cache class (ClassDeclarationSyntax), e.g. "sealed partial class SoftCache ..."
+        var generatedCacheClass = generator.CreateSoftCache(options);
+
+        // Wrap in a partial container of the target type:
+        // namespace <Namespace> { partial class/struct <Target> { <generatedCacheClass> } }
+        var partialContainer = BuildPartialContainer(
+            target,
+            [generatedCacheClass]);
+
+        var compilationUnit = CompilationUnit()
+            .WithMembers(SingletonList(partialContainer))
+            .NormalizeWhitespace();
+
+        // File name like A_B_C.SoftCache.g.cs (consistent with other generations)
+        var fullyQualifiedTypeName = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var fileName = CreateFileName(fullyQualifiedTypeName, "SoftCache");
+
+        return (compilationUnit.GetText(Encoding.UTF8), fileName);
+    }
+
 
 
     // ---------- helpers ----------

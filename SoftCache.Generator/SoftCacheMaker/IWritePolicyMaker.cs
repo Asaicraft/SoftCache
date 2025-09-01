@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SoftCache.Generator.SoftCacheMaker;
+namespace SoftCache.Generator.SoftCacheMakers;
 
 /// <summary>
 /// Generate AddToCache(SoftCacheableObject cache, ushort hash)

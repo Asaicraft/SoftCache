@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using SoftCache.Annotations;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SoftCache.Generator.SoftCacheMaker.WritePolicyMakers;
+namespace SoftCache.Generator.SoftCacheMakers.WritePolicyMakers;
 
 /// <summary>
 /// Base “template method” for generating <c>Add(value, hash)</c>.
