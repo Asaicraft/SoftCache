@@ -10,15 +10,22 @@ namespace SoftCache.Generator.SoftCacheMaker.WritePolicyMakers;
 /// <list type="number">
 /// <item><description>Computes the bucket <c>index</c> based on <paramref name="hash"/> and cache size.</description></item>
 /// <item><description>Loads the target <c>entry</c> (bucket) by reference.</description></item>
-/// <item><description>Probes for an empty slot within the bucket (if probing is enabled).</description></item>
+/// <item><description>Probes for an empty slot within the bucket and, if found, updates a local copy of the entry and assigns it back.</description></item>
 /// <item><description>Selects a victim slot when the bucket is full (policy-driven).</description></item>
-/// <item><description>Performs the write (optionally wrapping it for CAS-like policies).</description></item>
+/// <item><description>Performs the final write by rebuilding the entry locally and assigning it back to the bucket entry.</description></item>
 /// </list>
 /// Derivations override one or more hooks without rewriting the whole method.
 /// </summary>
 /// <remarks>
-/// This type builds Roslyn syntax trees to generate the actual writer method at source-gen time.
-/// It is not the writer itself; instead, it composes method bodies from overridable stages.
+/// <para>
+/// This type composes Roslyn syntax trees that generate the actual writer method at source-generation time.
+/// It is not the writer itself; instead, it emits method bodies assembled from overridable stages (hooks).
+/// </para>
+/// <para>
+/// <b>Write semantics:</b> successful writes replace the entire bucket entry via simple assignment
+/// (e.g., <c>entry = newEntry;</c>). This version targets <see cref="SoftCacheConcurrency.None"/> and does not
+/// introduce additional memory-ordering guarantees such as <c>volatile</c> or interlocked operations.
+/// </para>
 /// </remarks>
 /// <seealso cref="IWritePolicyMaker"/>
 public abstract class WritePolicyMaker : IWritePolicyMaker
@@ -45,12 +52,12 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// <summary>
     /// Composes the <c>Add(value, hash)</c> method declaration and body using the template steps.
     /// </summary>
-    /// <param name="context">Generation context with cache configuration and symbols.</param>
+    /// <param name="context">Generation context with cache configuration and symbol/name providers.</param>
     /// <returns>
     /// A <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax"/> representing the generated writer.
     /// </returns>
     /// <remarks>
-    /// The body is assembled from the following overridable hooks:
+    /// The body is assembled from the following hooks (in order):
     /// <see cref="AddDebugInfoIfNeeded"/>, <see cref="AddIndexSelector"/>, <see cref="AddEntryReference"/>,
     /// <see cref="AddEmptySlotProbe"/>, <see cref="AddVictimSelection"/>, and <see cref="AddFinalWrite"/>.
     /// </remarks>
@@ -63,9 +70,9 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
             .WithParameterList(ParameterList(SeparatedList(
             [
                 Parameter(Identifier("value"))
-                    .WithType(ParseTypeName(context.FullyQualifiedTypeName)),
-                Parameter(Identifier("hash"))
-                    .WithType(PredefinedType(Token(SyntaxKind.UShortKeyword)))
+                        .WithType(ParseTypeName(context.FullyQualifiedTypeName)),
+                    Parameter(Identifier("hash"))
+                        .WithType(PredefinedType(Token(SyntaxKind.UShortKeyword)))
             ])));
 
         var body = new List<StatementSyntax>();
@@ -101,11 +108,11 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// </summary>
     /// <param name="context">Generation context providing cache size and naming.</param>
     /// <returns>
-    /// Statements that assign the computed index to a variable named <see cref="CacheGenContext.IndexName"/>.
+    /// A statement that assigns the computed index to a variable named <see cref="CacheGenContext.IndexName"/>.
     /// Uses a specialized fast modulo when possible.
     /// </returns>
     /// <remarks>
-    /// For <c>CacheBits == 16</c> the index is a simple unchecked cast; otherwise a 32×32-&gt;64 fast-mod pattern is inlined.
+    /// For <c>CacheBits == 16</c> the index is an unchecked cast; otherwise a 32×32→64 fast-mod pattern is inlined.
     /// </remarks>
     protected virtual IEnumerable<StatementSyntax> AddIndexSelector(CacheGenContext context)
     {
@@ -115,12 +122,11 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
         string expression;
         if (context.Options.CacheBits == 16)
         {
-            // Special case: just cast ushort to int, no need for masking
             expression = "unchecked((int)hash)";
         }
         else
         {
-            // Embed FastMod directly into generated source
+            // Fast modulo (inline)
             expression = $"(int)((((({fastModMultiplier}UL * (ulong)hash) >> 32) + 1) * {cacheSize} >> 32))";
         }
 
@@ -130,7 +136,7 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// <summary>
     /// Emits code that loads the target bucket entry by reference.
     /// </summary>
-    /// <param name="context">Generation context providing cache field name and the local entry variable name.</param>
+    /// <param name="context">Generation context providing the cache field and the local entry variable name.</param>
     /// <returns>
     /// A single statement assigning <c>ref</c> to <see cref="CacheGenContext.EntryLocal"/> from <see cref="CacheGenContext.CacheFieldName"/> at <see cref="CacheGenContext.IndexName"/>.
     /// </returns>
@@ -140,46 +146,44 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     }
 
     /// <summary>
-    /// Emits a linear probe over all ways in the bucket to find an empty slot.
+    /// Emits a linear probe over all ways and, on empty, replaces the entire entry via simple assignment.
     /// </summary>
-    /// <param name="context">Generation context providing associativity, eviction policy, and local names.</param>
+    /// <param name="context">Generation context providing associativity and eviction policy.</param>
     /// <returns>
-    /// For each way, declares <c>ref</c> locals for value/hash (and stamp when LRU-approx is used) and performs an early-return write if the slot is empty.
+    /// For each way, generates a fast-path that:
+    /// copies the current entry to a local (<c>newEntry</c>), sets value/stamp/hash for that way, assigns
+    /// <c>entry = newEntry;</c>, and returns.
     /// </returns>
     /// <remarks>
     /// An empty slot is identified when the stored hash is zero or the stored value is <c>null</c>.
-    /// For <see cref="SoftCacheEvictionPolicy.LruApprox"/>, the access stamp is updated using <see cref="Environment.TickCount"/>.
+    /// When <see cref="SoftCacheEvictionPolicy.LruApprox"/> is used, the access stamp is updated using
+    /// <see cref="System.Environment.TickCount"/>.
     /// </remarks>
     protected virtual IEnumerable<StatementSyntax> AddEmptySlotProbe(CacheGenContext context)
     {
         var associativity = context.Options.Associativity;
-        for (int i = 0; i < associativity; i++)
+
+        for (var i = 0; i < associativity; i++)
         {
-            yield return ParseStatement($"ref var {context.EntryValueLocal} = ref entry.v{i};");
-            yield return ParseStatement($"ref var {context.EntryHashLocal} = ref entry.h{i};");
-
-            if (context.Options.Eviction == SoftCacheEvictionPolicy.LruApprox)
-            {
-                yield return ParseStatement($"ref var {context.EntryStampLocal} = ref entry.s{i};");
-            }
-
             var setStamp = context.Options.Eviction == SoftCacheEvictionPolicy.LruApprox
-                ? $"{context.EntryStampLocal} = global::System.Environment.TickCount;"
+                ? $"newEntry.s{i} = global::System.Environment.TickCount;"
                 : string.Empty;
 
             yield return ParseStatement(
-                $"if ({context.EntryHashLocal} == 0 || {context.EntryValueLocal} is null) {{ {context.EntryValueLocal} = value; {setStamp} {context.EntryHashLocal} = hash; return; }}");
+                "if (entry.h" + i + " == 0 || entry.v" + i + " is null) " +
+                "{ var newEntry = entry; newEntry.v" + i + " = value; " + setStamp + " newEntry.h" + i + " = hash; " +
+                "entry = newEntry; return; }");
         }
     }
 
     /// <summary>
-    /// Emits code to select a victim way when the bucket is full.
+    /// Emits victim selection when the bucket is full.
     /// </summary>
     /// <param name="context">Generation context providing associativity and eviction policy.</param>
     /// <returns>
-    /// Statements that set <see cref="CacheGenContext.VictimIndexLocal"/> to the selected way.
-    /// For <see cref="SoftCacheEvictionPolicy.Overwrite"/>, way 0 is chosen.
-    /// For <see cref="SoftCacheEvictionPolicy.LruApprox"/>, the way with the smallest stamp is chosen.
+    /// For direct-mapped caches (associativity = 1), yields nothing.
+    /// For <see cref="SoftCacheEvictionPolicy.Overwrite"/>, initializes <see cref="CacheGenContext.VictimIndexLocal"/> to 0.
+    /// For <see cref="SoftCacheEvictionPolicy.LruApprox"/>, selects the way with the smallest stamp.
     /// </returns>
     protected virtual IEnumerable<StatementSyntax> AddVictimSelection(CacheGenContext context)
     {
@@ -206,11 +210,12 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     }
 
     /// <summary>
-    /// Emits the final write to the selected way and returns from the generated method.
+    /// Emits the final write by rebuilding and assigning the entire entry at once.
     /// </summary>
-    /// <param name="context">Generation context providing associativity and names.</param>
+    /// <param name="context">Generation context providing associativity and local names.</param>
     /// <returns>
-    /// For direct-mapped caches, writes to way 0; for set-associative caches, switches on <see cref="CacheGenContext.VictimIndexLocal"/>.
+    /// For direct-mapped caches, defers to <see cref="AddFinalWriteDirectMapped"/>.
+    /// For set-associative caches, defers to <see cref="AddFinalWriteSetAssociative"/>.
     /// </returns>
     protected virtual IEnumerable<StatementSyntax> AddFinalWrite(CacheGenContext context)
     {
@@ -222,6 +227,7 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
             {
                 yield return statement;
             }
+
             yield break;
         }
 
@@ -232,37 +238,40 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     }
 
     /// <summary>
-    /// Emits the final write for direct-mapped caches (associativity = 1).
+    /// Direct-mapped final write: copy entry, mutate way 0, assign entire entry back, return.
     /// </summary>
     /// <param name="context">Generation context.</param>
     /// <returns>
-    /// Statements that assign value, optionally update the stamp, assign hash, and return.
+    /// Statements that assign value, optionally update the stamp, assign hash, then <c>entry = newEntry;</c> and return.
     /// </returns>
     protected virtual IEnumerable<StatementSyntax> AddFinalWriteDirectMapped(CacheGenContext context)
     {
-        yield return ParseStatement("entry.v0 = value;");
+        yield return ParseStatement("var newEntry = entry;");
+        yield return ParseStatement("newEntry.v0 = value;");
 
-        foreach (var stamp in BuildStampAssignment("entry.s0", context))
+        foreach (var stamp in BuildStampAssignment("newEntry.s0", context))
         {
             yield return stamp;
         }
 
-        yield return ParseStatement("entry.h0 = hash;");
+        yield return ParseStatement("newEntry.h0 = hash;");
+        yield return ParseStatement("entry = newEntry;");
         yield return ParseStatement("return;");
     }
 
     /// <summary>
-    /// Emits the final write for set-associative caches as a <c>switch</c> over the victim way.
+    /// Set-associative final write: switch on victim index, mutate chosen way in a local copy, assign back, return.
     /// </summary>
     /// <param name="context">Generation context.</param>
     /// <returns>
-    /// A <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.SwitchStatementSyntax"/> that writes to the selected way and returns.
+    /// A <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.SwitchStatementSyntax"/> that writes to the selected way,
+    /// assigns <c>entry = newEntry;</c>, and returns.
     /// </returns>
     protected virtual IEnumerable<StatementSyntax> AddFinalWriteSetAssociative(CacheGenContext context)
     {
         var sections = new List<SwitchSectionSyntax>();
 
-        for (int i = 0; i < context.Options.Associativity; i++)
+        for (var i = 0; i < context.Options.Associativity; i++)
         {
             sections.Add(BuildSwitchSectionForWay(context, i));
         }
@@ -273,35 +282,39 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     }
 
     /// <summary>
-    /// Builds a <c>switch</c> section that writes into the specified way.
+    /// Builds a switch section that replaces the entire entry after mutating the specified way.
     /// </summary>
     /// <param name="context">Generation context.</param>
     /// <param name="way">The way (index) to write.</param>
     /// <returns>
-    /// A <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.SwitchSectionSyntax"/> that assigns value, updates stamp (if applicable), assigns hash, and returns.
+    /// A <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.SwitchSectionSyntax"/> that assigns value, optionally updates the stamp,
+    /// assigns hash, performs <c>entry = newEntry;</c>, and returns.
     /// </returns>
     protected virtual SwitchSectionSyntax BuildSwitchSectionForWay(CacheGenContext context, int way)
     {
         var statements = new List<StatementSyntax>
         {
-            ParseStatement($"entry.v{way} = value;")
+            ParseStatement("var newEntry = entry;"),
+            ParseStatement($"newEntry.v{way} = value;")
         };
 
-        foreach (var stamp in BuildStampAssignment($"entry.s{way}", context))
+        foreach (var stamp in BuildStampAssignment($"newEntry.s{way}", context))
         {
             statements.Add(stamp);
         }
 
-        statements.Add(ParseStatement($"entry.h{way} = hash;"));
+        statements.Add(ParseStatement($"newEntry.h{way} = hash;"));
+        statements.Add(ParseStatement("entry = newEntry;"));
         statements.Add(ParseStatement("return;"));
 
         return SwitchSection()
-            .WithLabels(SingletonList<SwitchLabelSyntax>(CaseSwitchLabel(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(way)))))
+            .WithLabels(SingletonList<SwitchLabelSyntax>(
+                CaseSwitchLabel(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(way)))))
             .WithStatements(List(statements));
     }
 
     /// <summary>
-    /// Builds the default <c>switch</c> section used as a safety net when the victim index is out of range.
+    /// Default switch section: mutate way 0 in a local copy, assign entire entry back, return.
     /// </summary>
     /// <param name="context">Generation context.</param>
     /// <returns>
@@ -311,15 +324,17 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     {
         var statements = new List<StatementSyntax>
         {
-            ParseStatement("entry.v0 = value;")
+            ParseStatement("var newEntry = entry;"),
+            ParseStatement("newEntry.v0 = value;")
         };
 
-        foreach (var stamp in BuildStampAssignment("entry.s0", context))
+        foreach (var stamp in BuildStampAssignment("newEntry.s0", context))
         {
             statements.Add(stamp);
         }
 
-        statements.Add(ParseStatement("entry.h0 = hash;"));
+        statements.Add(ParseStatement("newEntry.h0 = hash;"));
+        statements.Add(ParseStatement("entry = newEntry;"));
         statements.Add(ParseStatement("return;"));
 
         return SwitchSection()
@@ -330,13 +345,13 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// <summary>
     /// Conditionally emits an assignment to the access timestamp for LRU-approx eviction.
     /// </summary>
-    /// <param name="left">The left-hand side expression that represents the stamp field (e.g., <c>entry.s0</c>).</param>
+    /// <param name="left">The left-hand-side expression that represents the stamp field (e.g., <c>newEntry.s0</c>).</param>
     /// <param name="context">Generation context providing the eviction policy.</param>
     /// <returns>
     /// A single assignment to <paramref name="left"/> when <see cref="SoftCacheEvictionPolicy.LruApprox"/> is enabled; otherwise yields nothing.
     /// </returns>
     /// <remarks>
-    /// Uses <see cref="Environment.TickCount"/> as a coarse-grained, monotonic-ish timestamp suitable for approximate LRU.
+    /// Uses <see cref="System.Environment.TickCount"/> as a coarse-grained timestamp suitable for approximate LRU.
     /// </remarks>
     protected virtual IEnumerable<StatementSyntax> BuildStampAssignment(string left, CacheGenContext context)
     {

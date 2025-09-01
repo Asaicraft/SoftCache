@@ -13,20 +13,12 @@ public enum SoftCacheConcurrency
     None,
 
     /// <summary>
-    /// Optimistic write without compare-and-swap.  
-    /// Assumes writes are rare and collisions unlikely; overwrites directly.
+    /// Compare-and-swap–style publication.  
+    /// Writes rebuild the entry and publish it using <see cref="System.Threading.Volatile.Write{T}(ref T, T)"/>,  
+    /// ensuring that updates become visible in the correct order (value/stamp → hash).  
+    /// Prevents consumers from observing partially updated entries,  
+    /// but does not guarantee atomic replacement across multiple threads like a full CAS loop.  
+    /// Suitable for scenarios where ordering and visibility matter but lock-free retry loops are unnecessary.
     /// </summary>
-    Optimistic,
-
-    /// <summary>
-    /// Compare-and-swap only if the cache slot is empty.
-    /// Prevents overwriting a valid entry unless it's a miss.
-    /// </summary>
-    CASOnEmpty,
-
-    /// <summary>
-    /// Compare-and-swap always before writing.  
-    /// Safest, but slightly slower.
-    /// </summary>
-    CASAlways
+    CAS,
 }
