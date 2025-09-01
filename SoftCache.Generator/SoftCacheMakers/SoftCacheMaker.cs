@@ -23,9 +23,9 @@ public sealed class SoftCacheMaker: ISoftCacheMaker
         // "global::Ns.Type.Parameters"
         var parametersType = fqType + ".Parameters";
 
-        // Compute actual cache size (2^CacheBits for now).
-        // NOTE: CacheGenContext allows non-powers-of-two in the future; generator can change this later.
-        var cacheSize = 1 << softCacheOptions.CacheBits;
+        var cacheSize = softCacheOptions.UseNearestPrime 
+            ? (1 << softCacheOptions.CacheBits)
+            : NearestPrimes.For(softCacheOptions.CacheBits);
 
         // Consistent identifiers used across the generator
         const string cacheClassName = "SoftCache";
@@ -40,9 +40,7 @@ public sealed class SoftCacheMaker: ISoftCacheMaker
         const string entryStampLocal = "slotStamp";
         const string victimIndexLocal = "victimIndex";
         const string indexName = "index";
-
-        // For direct-mapped caches we frequently address .s0 / .h0 / .v0
-        string? indexSuffix = softCacheOptions.Associativity == 1 ? "0" : null;
+        const string lockFieldName = "s_lockObject";
 
         var genContext = new CacheGenContext(
             Options: softCacheOptions,
@@ -63,7 +61,7 @@ public sealed class SoftCacheMaker: ISoftCacheMaker
             StampFieldName: stampFieldName,
             StatsName: statsName,
             IndexName: indexName,
-            IndexSuffix: indexSuffix
+            LockFieldName: lockFieldName
         );
 
         // TODO: use genContext to emit the whole class (fields, ctor, Add method, etc.)

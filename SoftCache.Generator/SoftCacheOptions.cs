@@ -69,4 +69,18 @@ public sealed record SoftCacheOptions
     /// The target type for which the cache is being generated.
     /// </summary>
     public required ITypeSymbol TargetType { get; init; }
+
+    /// <summary>
+    /// Whether to replace <c>2^CacheBits</c> with the nearest strictly greater prime number 
+    /// for the actual cache size (<see cref="CacheGenContext.CacheSize"/>).
+    /// <para>
+    /// This improves key distribution when <c>CacheBits &lt; 16</c>, because indices are 
+    /// computed modulo a prime rather than a power of two, reducing clustering effects.
+    /// </para>
+    /// <para>
+    /// When <c>CacheBits == 16</c>, the option is ignored: the hash is already 16-bit wide,
+    /// and can be used directly as an index without masking or modular reduction.
+    /// </para>
+    /// </summary>
+    public bool UseNearestPrime { get; init; } = false;
 }

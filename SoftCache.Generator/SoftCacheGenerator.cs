@@ -443,6 +443,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         var generateSeed = false;
         var enableDebugMetrics = false;
         var eviction = SoftCacheEvictionPolicy.Overwrite;
+        var useNearestPrime = false;
 
         foreach (var namedArgument in attributeData.NamedArguments)
         {
@@ -525,6 +526,15 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                     }
                     break;
                 }
+
+                case nameof(SoftCacheOptions.UseNearestPrime):
+                {
+                    if(typedConstant.Value is bool nearestPrime)
+                    {
+                        useNearestPrime = nearestPrime;
+                    }
+                    break;
+                }
             }
         }
 
@@ -553,7 +563,8 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             Eviction = eviction,
             GenerateGlobalSeed = generateSeed,
             EnableDebugMetrics = enableDebugMetrics,
-            TargetType = targetType
+            TargetType = targetType,
+            UseNearestPrime = useNearestPrime
         };
     }
 }
