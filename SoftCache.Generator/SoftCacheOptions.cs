@@ -83,4 +83,13 @@ public sealed record SoftCacheOptions
     /// </para>
     /// </summary>
     public bool UseNearestPrime { get; init; } = false;
+
+    /// <summary>
+    /// Whether the <see cref="System.Threading.Lock"/> type is available in the target runtime.
+    /// <para>
+    /// When <see langword="true"/>, the generator will prefer emitting code that uses 
+    /// <c>System.Threading.Lock</c> (introduced in .NET 9) for concurrency control. 
+    /// </para>
+    /// </summary>
+    public bool HasSystemThreadingLock { get; init; } = false;
 }

@@ -54,6 +54,6 @@ public record struct CacheGenContext(
     // "idx" or "index" for variavle wich contains the index of the cache slot for exampe "var {IndexName} = hash & {CacheMaskName}"
     string IndexName,
 
-    string LockFieldName
+    string? LockFieldName
 );
 

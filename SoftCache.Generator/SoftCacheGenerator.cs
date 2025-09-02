@@ -48,13 +48,14 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                             return (ok: false, options: default(SoftCacheOptions));
                         }
 
-                        var parsedOptions = ParseOptions(attributeData, targetTypeSymbol);
+                        var parsedOptions = ParseOptions(attributeData, targetTypeSymbol, (CSharpCompilation)transformContext.SemanticModel.Compilation);
+
                         return (ok: true, options: parsedOptions);
                     })
                 .Where(static tuple => tuple.ok)
                 .Select(static (tuple, _) => tuple.options);
 
-        context.RegisterSourceOutput(optionsProvider, static (spc, options) =>
+        context.RegisterSourceOutput(optionsProvider, static (sourceProviderContext, options) =>
         {
             if (options?.TargetType is not INamedTypeSymbol target)
             {
@@ -69,11 +70,11 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             var softHashText = CreateSoftHashBundleText(target, options, extractedParameters);
             var softCache = CreateSoftCacheClass(target, options, extractedParameters);
 
-            spc.AddSource(parametersText);
-            spc.AddSource(getParametersText);
-            spc.AddSource(softEqualsText);
-            spc.AddSource(softHashText);
-            spc.AddSource(softCache);
+            sourceProviderContext.AddSource(parametersText);
+            sourceProviderContext.AddSource(getParametersText);
+            sourceProviderContext.AddSource(softEqualsText);
+            sourceProviderContext.AddSource(softHashText);
+            sourceProviderContext.AddSource(softCache);
         });
     }
 
@@ -434,7 +435,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         return builder.ToString();
     }
 
-    private static SoftCacheOptions ParseOptions(AttributeData attributeData, ITypeSymbol targetType)
+    private static SoftCacheOptions ParseOptions(AttributeData attributeData, ITypeSymbol targetType, CSharpCompilation compilation)
     {
         var cacheBits = 16;
         var associativity = 1;
@@ -444,6 +445,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
         var enableDebugMetrics = false;
         var eviction = SoftCacheEvictionPolicy.Overwrite;
         var useNearestPrime = false;
+        var hasSystemThreadingLock = compilation.GetTypeByMetadataName("System.Threading.Lock") is not null;
 
         foreach (var namedArgument in attributeData.NamedArguments)
         {
@@ -564,7 +566,8 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
             GenerateGlobalSeed = generateSeed,
             EnableDebugMetrics = enableDebugMetrics,
             TargetType = targetType,
-            UseNearestPrime = useNearestPrime
+            UseNearestPrime = useNearestPrime,
+            HasSystemThreadingLock = hasSystemThreadingLock,
         };
     }
 }
