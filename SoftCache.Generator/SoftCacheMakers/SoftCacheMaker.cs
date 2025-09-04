@@ -25,8 +25,9 @@ public sealed class SoftCacheMaker: ISoftCacheMaker
         var parametersType = fqType + ".Parameters";
 
         var cacheSize = softCacheOptions.UseNearestPrime 
-            ? (1 << softCacheOptions.CacheBits)
-            : NearestPrimes.For(softCacheOptions.CacheBits);
+            ? NearestPrimes.For(softCacheOptions.CacheBits)
+            : (1 << softCacheOptions.CacheBits);
+            
 
         // Consistent identifiers used across the generator
         const string cacheClassName = "SoftCache";

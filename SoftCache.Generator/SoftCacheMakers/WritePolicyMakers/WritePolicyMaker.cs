@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using SoftCache.Annotations;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using SoftCache.Generator.SoftCacheMakers.IndexSelectors;
 
 namespace SoftCache.Generator.SoftCacheMakers.WritePolicyMakers;
 
@@ -118,21 +119,9 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// </remarks>
     protected virtual IEnumerable<StatementSyntax> AddIndexSelector(CacheGenContext context)
     {
-        var cacheSize = context.CacheSize;
-        var fastModMultiplier = (ulong.MaxValue / (uint)cacheSize) + 1UL;
+        var indexSelector = IndexSelectorFactory.Create(context);
 
-        string expression;
-        if (context.Options.CacheBits == 16)
-        {
-            expression = "unchecked((int)hash)";
-        }
-        else
-        {
-            // Fast modulo (inline)
-            expression = $"(int)((((({fastModMultiplier}UL * (ulong)hash) >> 32) + 1) * {cacheSize} >> 32))";
-        }
-
-        yield return ParseStatement($"var {context.IndexName} = {expression};");
+        yield return indexSelector.CreateIndexStatement(context);
     }
 
     /// <summary>
