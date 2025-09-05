@@ -10,9 +10,9 @@ using static SoftCache.Generator.SoftCacheGenerator;
 
 namespace SoftCache.Generator.StaticHashMakers;
 
-public sealed class Xor16HashMaker : IStaticHashMaker
+public sealed class XorHashMaker : IStaticHashMaker
 {
-    public static readonly Xor16HashMaker Instance = new();
+    public static readonly XorHashMaker Instance = new();
 
     public MethodDeclarationSyntax MakeStatic(
         SoftCacheOptions softCacheOptions,

@@ -12,10 +12,10 @@ namespace SoftCache.Annotations;
 public enum SoftHashKind
 {
     /// <summary>
-    /// Fast XOR folding of integer halves into 16 bits.  
+    /// Fast XOR folding of integer halves into 32 bits.  
     /// Default — minimal CPU cost, decent distribution for simple data.
     /// </summary>
-    XorFold16,
+    XorFold,
 
     /// <summary>
     /// Custom hash logic — generator will call a partial method 

@@ -121,7 +121,10 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     {
         var indexSelector = IndexSelectorFactory.Create(context);
 
-        yield return indexSelector.CreateIndexStatement(context);
+        foreach(var statement in indexSelector.CreateIndexStatement(context))
+        {
+            yield return statement;
+        }
     }
 
     /// <summary>

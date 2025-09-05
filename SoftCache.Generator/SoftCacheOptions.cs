@@ -29,7 +29,7 @@ public sealed record SoftCacheOptions
     /// <summary>
     /// The hash algorithm used for <see cref="ISoftCacheable{TParameters}.GetSoftHashCode"/>.
     /// </summary>
-    public SoftHashKind HashKind { get; init; } = SoftHashKind.XorFold16;
+    public SoftHashKind HashKind { get; init; } = SoftHashKind.XorFold;
 
     /// <summary>
     /// Concurrency control mode used when writing into the cache.

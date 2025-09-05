@@ -7,5 +7,5 @@ namespace SoftCache.Generator.SoftCacheMakers.IndexSelectors;
 
 public interface IIndexSelector
 {
-    public StatementSyntax CreateIndexStatement(CacheGenContext context);
+    public IEnumerable<StatementSyntax> CreateIndexStatement(CacheGenContext context);
 }

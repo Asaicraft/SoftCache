@@ -38,9 +38,10 @@ public sealed record Todo(int Id, string? Title, DateOnly? DueBy = null, bool Is
 internal partial class AppJsonSerializerContext : JsonSerializerContext { }
 
 [SoftCache(
-    CacheBits = 16,
+    CacheBits = 15,
+    UseNearestPrime = true,
     Associativity = 1,
-    HashKind = SoftHashKind.XorFold16,
+    HashKind = SoftHashKind.XorFold,
     Concurrency = SoftCacheConcurrency.None,
     GenerateGlobalSeed = false,
     EnableDebugMetrics = false)]

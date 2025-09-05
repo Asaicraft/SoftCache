@@ -439,7 +439,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
     {
         var cacheBits = 16;
         var associativity = 1;
-        var hashKind = SoftHashKind.XorFold16;
+        var hashKind = SoftHashKind.XorFold;
         var concurrency = SoftCacheConcurrency.None;
         var generateSeed = false;
         var enableDebugMetrics = false;

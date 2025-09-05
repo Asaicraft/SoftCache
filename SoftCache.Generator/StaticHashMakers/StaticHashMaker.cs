@@ -10,9 +10,9 @@ internal static class StaticHashMaker
     {
         return options.HashKind switch
         {
-            SoftHashKind.XorFold16 => Xor16HashMaker.Instance,
+            SoftHashKind.XorFold => XorHashMaker.Instance,
             SoftHashKind.Custom => CustomSoftHashMaker.Instance,
-            _ => Xor16HashMaker.Instance,
+            _ => XorHashMaker.Instance,
         };
     }
 }
