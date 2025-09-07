@@ -62,19 +62,27 @@ public interface ISoftCacheable<TParameters> where TParameters : struct, allows 
     public bool SoftEquals(scoped in TParameters parameters);
 
     /// <summary>
-    /// Computes a compact 16-bit hash code representing the identity of this object.
+    /// Computes a lightweight 32-bit hash code representing the identity of this object.
     /// <para>
-    /// This value is used by <c>SoftCache</c> to index into its fixed-size cache array.
+    /// Unlike the standard <see cref="object.GetHashCode"/>, which is typically optimized 
+    /// for uniform distribution across large hash tables, <c>GetSoftHashCode</c> is optimized 
+    /// for <b>speed</b> and for use in a fixed-size <c>SoftCache</c>.
     /// </para>
     /// <para>
-    /// <b>Note:</b> The generator implements this method based on the chosen hash strategy.
-    /// It should be consistent with <see cref="SoftEquals"/> — equal objects must return the same hash.
+    /// The <b>lowest 16 bits</b> of the returned value carry the most important 
+    /// information and are used directly for bucket indexing. The upper 16 bits may 
+    /// still hold useful entropy but are secondary.
+    /// </para>
+    /// <para>
+    /// Implementations must ensure consistency with <see cref="SoftEquals"/>: 
+    /// objects considered equal must produce identical hash codes.
     /// </para>
     /// </summary>
     /// <returns>
-    /// A 16-bit unsigned integer hash code for this object.
+    /// A 32-bit unsigned integer hash code, where the lower 16 bits carry 
+    /// the primary bucket-selection signal.
     /// </returns>
-    public ushort GetSoftHashCode();
+    public uint GetSoftHashCode();
 
     /// <summary>
     /// Retrieves the immutable parameter structure (<typeparamref name="TParameters"/>) 

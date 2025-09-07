@@ -8,6 +8,7 @@ using System.Text;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SoftCache.Generator.StaticHashMakers;
+
 public sealed class CustomSoftHashMaker : IStaticHashMaker
 {
     public static readonly CustomSoftHashMaker Instance = new();
@@ -22,16 +23,21 @@ public sealed class CustomSoftHashMaker : IStaticHashMaker
 
         var xml = ParseLeadingTrivia($$"""
             /// <summary>
-            /// Custom soft-hash entry point. Provide the implementation in your partial class.
+            /// Custom soft-hash entry point. 
+            /// Provide the implementation in your partial class.
+            /// <para>
+            /// The return value is a <b>32-bit hash</b>, where the <b>lowest 16 bits</b> 
+            /// are considered the primary bucket signal and thus the most important.
+            /// </para>
             /// </summary>
             /// <param name="parameters">Immutable parameter pack.</param>
-            /// <returns>User-defined 16-bit hash.</returns>
+            /// <returns>User-defined 32-bit hash (low 16 bits carry primary weight).</returns>
             
             """);
 
-        // static partial ushort MakeSoftHash(in global::<FQN>.Parameters parameters);
+        // static partial uint MakeSoftHash(in global::<FQN>.Parameters parameters);
         var method = MethodDeclaration(
-                PredefinedType(Token(SyntaxKind.UShortKeyword)),
+                PredefinedType(Token(SyntaxKind.UIntKeyword)),
                 Identifier("MakeSoftHash"))
             .WithModifiers(TokenList(
                 Token(SyntaxKind.StaticKeyword),
