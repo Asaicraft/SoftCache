@@ -18,13 +18,13 @@ public sealed class LockWritePolicyMaker : WritePolicyMaker
             MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), Identifier("Add"))
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword)))
             .WithParameterList(
-                ParameterList(SeparatedList(new[]
-                {
+                ParameterList(SeparatedList(
+                [
                         Parameter(Identifier("value"))
                             .WithType(ParseTypeName(context.FullyQualifiedTypeName)),
                         Parameter(Identifier("hash"))
-                            .WithType(PredefinedType(Token(SyntaxKind.UShortKeyword)))
-                })));
+                            .WithType(PredefinedType(Token(SyntaxKind.UIntKeyword)))
+                ])));
 
         // Compose inner pipeline (same hooks/order as base) but wrap them in a lock
         var inner = new List<StatementSyntax>();

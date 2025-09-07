@@ -75,7 +75,7 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
                 Parameter(Identifier("value"))
                         .WithType(ParseTypeName(context.FullyQualifiedTypeName)),
                     Parameter(Identifier("hash"))
-                        .WithType(PredefinedType(Token(SyntaxKind.UShortKeyword)))
+                        .WithType(PredefinedType(Token(SyntaxKind.UIntKeyword)))
             ])));
 
         var body = new List<StatementSyntax>();

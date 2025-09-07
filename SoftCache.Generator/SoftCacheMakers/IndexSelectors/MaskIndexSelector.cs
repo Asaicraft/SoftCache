@@ -9,8 +9,8 @@ public sealed class MaskIndexSelector : IIndexSelector
 
     public IEnumerable<StatementSyntax> CreateIndexStatement(CacheGenContext context)
     {
-        // var {IndexName} = (unchecked((int)hash) & CacheMask);
-        var expr = $"var {context.IndexName} = (unchecked((int)hash) & {context.CacheMaskName});";
+        // var {IndexName} = hash & CacheMask;
+        var expr = $"var {context.IndexName} = hash & {context.CacheMaskName};";
         yield return ParseStatement(expr);
     }
 }
