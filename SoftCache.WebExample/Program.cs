@@ -39,10 +39,9 @@ internal partial class AppJsonSerializerContext : JsonSerializerContext { }
 
 [SoftCache(
     CacheBits = 15,
-    UseNearestPrime = true,
-    Associativity = 1,
+    Associativity = 2,
     HashKind = SoftHashKind.XorFold,
-    Concurrency = SoftCacheConcurrency.None,
+    Concurrency = SoftCacheConcurrency.Lock,
     GenerateGlobalSeed = false,
     EnableDebugMetrics = false)]
 public sealed partial class TodoQueryKey

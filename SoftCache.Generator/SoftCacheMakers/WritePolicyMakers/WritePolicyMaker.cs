@@ -66,28 +66,51 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
     /// </remarks>
     public virtual MethodDeclarationSyntax CreateWriter(CacheGenContext context)
     {
-        var method = MethodDeclaration(
+        var method = CreateAddHeader(context);
+        var body = Block(BuildPipelineStatements(context));
+        return method.WithBody(body);
+    }
+
+    /// <summary>
+    /// Unified header for: public static void Add(T value, uint hash)
+    /// </summary>
+    protected virtual MethodDeclarationSyntax CreateAddHeader(CacheGenContext context)
+    {
+        return MethodDeclaration(
                 PredefinedType(Token(SyntaxKind.VoidKeyword)),
                 Identifier("Add"))
             .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword)))
-            .WithParameterList(ParameterList(SeparatedList(
-            [
-                Parameter(Identifier("value"))
+            .WithParameterList(
+                ParameterList(SeparatedList(
+                [
+                    Parameter(Identifier("value"))
                         .WithType(ParseTypeName(context.FullyQualifiedTypeName)),
                     Parameter(Identifier("hash"))
                         .WithType(PredefinedType(Token(SyntaxKind.UIntKeyword)))
-            ])));
+                ])));
+    }
 
-        var body = new List<StatementSyntax>();
-
-        body.AddRange(AddDebugInfoIfNeeded(context));
-        body.AddRange(AddIndexSelector(context));
-        body.AddRange(AddEntryReference(context));
-        body.AddRange(AddEmptySlotProbe(context));
-        body.AddRange(AddVictimSelection(context));
-        body.AddRange(AddFinalWrite(context));
-
-        return method.WithBody(Block(body));
+    /// <summary>
+    /// Builds the pipeline of statements that make up the writer method.
+    /// This method orchestrates the sequence of steps required to generate
+    /// the `Add(value, hash)` method body, delegating to specific hooks for
+    /// each stage of the pipeline.
+    /// </summary>
+    /// <param name="context">The generation context containing cache configuration and naming conventions.</param>
+    /// <returns>
+    /// An enumerable of <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax"/> 
+    /// representing the pipeline of statements for the writer method.
+    /// </returns>
+    protected virtual IEnumerable<StatementSyntax> BuildPipelineStatements(CacheGenContext context)
+    {
+        var pipelineStatements = new List<StatementSyntax>();
+        pipelineStatements.AddRange(AddDebugInfoIfNeeded(context));
+        pipelineStatements.AddRange(AddIndexSelector(context));
+        pipelineStatements.AddRange(AddEntryReference(context));
+        pipelineStatements.AddRange(AddEmptySlotProbe(context));
+        pipelineStatements.AddRange(AddVictimSelection(context));
+        pipelineStatements.AddRange(AddFinalWrite(context));
+        return pipelineStatements;
     }
 
     /// <summary>
