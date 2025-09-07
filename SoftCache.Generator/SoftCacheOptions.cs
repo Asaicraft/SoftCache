@@ -20,7 +20,7 @@ public sealed record SoftCacheOptions
     /// <summary>
     /// Number of entries per cache slot (init associativity).
     /// <para>
-    /// A value of 1 means no buckets — direct-mapped cache.
+    /// A value of 1 means no buckets - direct-mapped cache.
     /// A value between 2 and 4 enables small buckets per slot, improving collision handling.
     /// </para>
     /// </summary>

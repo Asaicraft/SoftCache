@@ -46,7 +46,6 @@ public abstract class WritePolicyMaker : IWritePolicyMaker
         return context.Options.Concurrency switch
         {
             SoftCacheConcurrency.None => SimpleWritePolicyMaker.Instance,
-            SoftCacheConcurrency.CAS => CasWritePolicyMaker.Instance,
             SoftCacheConcurrency.Lock => LockWritePolicyMaker.Instance,
             _ => throw new NotSupportedException()
         };
