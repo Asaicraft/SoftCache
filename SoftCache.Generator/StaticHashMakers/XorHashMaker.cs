@@ -31,6 +31,7 @@ public sealed class XorHashMaker : IStaticHashMaker
             /// </summary>
             /// <param name="parameters">Immutable parameter pack.</param>
             /// <returns>32-bit hash (primary bucket signal is in the low 16 bits).</returns>
+
             """);
 
         var statements = new List<StatementSyntax>

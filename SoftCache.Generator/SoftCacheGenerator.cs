@@ -141,7 +141,7 @@ public sealed class SoftCacheGenerator : IIncrementalGenerator
                                 expression: IdentifierName("parameters"))))));
 
         var getSoftHashCodeMethod =
-            MethodDeclaration(PredefinedType(Token(SyntaxKind.UShortKeyword)), Identifier("GetSoftHashCode"))
+            MethodDeclaration(PredefinedType(Token(SyntaxKind.UIntKeyword)), Identifier("GetSoftHashCode"))
                 .WithExplicitInterfaceSpecifier(explicitInterface)
                 .WithBody(Block(getParametersStatement, returnStatement))
                 .WithLeadingTrivia(ParseLeadingTrivia("""
